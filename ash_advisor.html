@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASH_AGENT — Pen Test Advisor</title>
+
+<!-- xterm.js terminal -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.js"></script>
+
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+
+<!-- Marked (markdown parser) -->
+<script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+
+<style>
+:root {
+  --bg:        #0a0c0e;
+  --bg2:       #0f1215;
+  --bg3:       #141820;
+  --border:    #1e2530;
+  --amber:     #e8a020;
+  --amber-dim: #7a5010;
+  --amber-glow:#ff8c00;
+  --green:     #00ff88;
+  --green-dim: #006633;
+  --red:       #ff3a3a;
+  --cyan:      #00d4ff;
+  --muted:     #3a4555;
+  --text:      #c8d4e0;
+  --text-dim:  #6a7888;
+  --scan-h:    2px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%; width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Exo 2', sans-serif;
+  overflow: hidden;
+}
+
+/* ── CRT Scanlines Overlay ── */
+body::after {
+  content: '';
+  position: fixed; inset: 0; z-index: 9999;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent calc(var(--scan-h) * 2),
+    rgba(0,0,0,0.08) calc(var(--scan-h) * 2),
+    rgba(0,0,0,0.08) calc(var(--scan-h) * 3)
+  );
+}
+
+/* ══════════════════ LOGIN SCREEN ══════════════════ */
+#login-screen {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: var(--bg);
+  animation: fadeIn .4s ease;
+}
+
+.login-art {
+  font-family: 'Share Tech Mono', monospace;
+  color: var(--amber);
+  font-size: clamp(8px, 1.1vw, 13px);
+  line-height: 1.15;
+  text-align: center;
+  margin-bottom: 2rem;
+  opacity: 0.85;
+  text-shadow: 0 0 12px var(--amber);
+  white-space: pre;
+}
+
+.login-box {
+  width: min(420px, 92vw);
+  border: 1px solid var(--amber-dim);
+  background: var(--bg2);
+  padding: 2.5rem 2rem;
+  position: relative;
+  box-shadow: 0 0 40px rgba(232,160,32,0.1), inset 0 0 60px rgba(0,0,0,.4);
+}
+
+.login-box::before {
+  content: '[ SECURE ACCESS — AUTHORISED PERSONNEL ONLY ]';
+  position: absolute; top: -11px; left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg2); color: var(--amber-dim);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px; padding: 0 8px;
+  white-space: nowrap;
+}
+
+.login-title {
+  font-family: 'Orbitron', monospace;
+  font-weight: 900;
+  font-size: 2rem;
+  color: var(--amber);
+  text-align: center;
+  letter-spacing: 6px;
+  text-shadow: 0 0 20px var(--amber-glow), 0 0 40px rgba(255,140,0,0.3);
+  margin-bottom: .3rem;
+}
+
+.login-sub {
+  text-align: center; color: var(--text-dim);
+  font-size: .75rem; letter-spacing: 3px;
+  text-transform: uppercase;
+  font-family: 'Share Tech Mono', monospace;
+  margin-bottom: 2rem;
+}
+
+.login-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .7rem; color: var(--amber-dim);
+  letter-spacing: 2px; text-transform: uppercase;
+  margin-bottom: .4rem; display: block;
+}
+
+.login-input {
+  width: 100%; padding: .75rem 1rem;
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--amber); font-family: 'Share Tech Mono', monospace;
+  font-size: .9rem; outline: none;
+  transition: border-color .2s, box-shadow .2s;
+  margin-bottom: 1.5rem;
+}
+.login-input:focus {
+  border-color: var(--amber);
+  box-shadow: 0 0 12px rgba(232,160,32,0.2);
+}
+
+.login-btn {
+  width: 100%; padding: .85rem;
+  background: transparent; border: 1px solid var(--amber);
+  color: var(--amber); font-family: 'Orbitron', monospace;
+  font-weight: 700; font-size: .85rem; letter-spacing: 4px;
+  text-transform: uppercase; cursor: pointer;
+  transition: all .2s; position: relative; overflow: hidden;
+}
+.login-btn::before {
+  content: ''; position: absolute; inset: 0;
+  background: var(--amber); transform: translateX(-101%);
+  transition: transform .25s ease;
+}
+.login-btn:hover::before { transform: translateX(0); }
+.login-btn:hover { color: var(--bg); }
+.login-btn span { position: relative; z-index: 1; }
+
+.login-error {
+  color: var(--red); font-family: 'Share Tech Mono', monospace;
+  font-size: .78rem; text-align: center; margin-top: .8rem;
+  min-height: 1.2em;
+}
+
+/* ══════════════════ MAIN LAYOUT ══════════════════ */
+#app {
+  display: none;
+  flex-direction: column;
+  height: 100vh; width: 100vw;
+  overflow: hidden;
+}
+#app.active { display: flex; animation: fadeIn .4s ease; }
+
+/* ── Top Bar ── */
+#topbar {
+  height: 44px; flex-shrink: 0;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 1rem; gap: 1rem;
+  position: relative;
+}
+
+.topbar-logo {
+  font-family: 'Orbitron', monospace;
+  font-weight: 900; font-size: .95rem;
+  color: var(--amber);
+  text-shadow: 0 0 12px var(--amber-glow);
+  letter-spacing: 3px; white-space: nowrap;
+}
+.topbar-logo span { color: var(--text-dim); font-size: .65rem; margin-left: 4px; }
+
+.topbar-phases {
+  display: flex; gap: 2px; flex: 1; overflow: hidden;
+}
+
+.phase-btn {
+  padding: 3px 10px;
+  background: transparent; border: 1px solid var(--border);
+  color: var(--text-dim); font-family: 'Share Tech Mono', monospace;
+  font-size: .62rem; letter-spacing: 1px; cursor: pointer;
+  transition: all .15s; white-space: nowrap;
+  text-transform: uppercase;
+}
+.phase-btn:hover { border-color: var(--amber-dim); color: var(--amber-dim); }
+.phase-btn.active {
+  border-color: var(--amber); color: var(--amber);
+  background: rgba(232,160,32,0.08);
+  text-shadow: 0 0 8px var(--amber-glow);
+}
+
+.topbar-right {
+  display: flex; align-items: center; gap: .6rem;
+  margin-left: auto;
+}
+
+.status-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: pulse 2s infinite;
+}
+.status-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .65rem; color: var(--green); letter-spacing: 1px;
+}
+
+.topbar-btn {
+  padding: 3px 10px;
+  background: transparent; border: 1px solid var(--border);
+  color: var(--text-dim); font-family: 'Share Tech Mono', monospace;
+  font-size: .65rem; cursor: pointer; transition: all .15s;
+}
+.topbar-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+.topbar-btn.danger:hover { border-color: var(--red); color: var(--red); }
+
+/* ── Main Body ── */
+#main-body {
+  flex: 1; display: flex; overflow: hidden;
+  min-height: 0;
+}
+
+/* ── Left: Terminal Panel ── */
+#terminal-panel {
+  display: flex; flex-direction: column;
+  width: 58%; min-width: 300px;
+  border-right: 1px solid var(--border);
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.panel-header {
+  height: 36px; flex-shrink: 0;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 1rem; gap: .6rem;
+}
+.panel-title {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .72rem; color: var(--amber);
+  letter-spacing: 2px; text-transform: uppercase;
+}
+.panel-dot { width: 8px; height: 8px; border-radius: 50%; }
+.pd-red   { background: #ff5f57; }
+.pd-amber { background: #febc2e; }
+.pd-green { background: #28c840; }
+
+.tab-bar {
+  display: flex; flex-shrink: 0;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+}
+.tab {
+  padding: 6px 16px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .68rem; color: var(--text-dim);
+  cursor: pointer; border-right: 1px solid var(--border);
+  transition: all .15s; position: relative;
+  display: flex; align-items: center; gap: 6px;
+}
+.tab.active {
+  color: var(--amber);
+  background: var(--bg);
+}
+.tab.active::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 2px; background: var(--amber);
+}
+.tab:hover:not(.active) { color: var(--text); }
+.tab-add {
+  margin-left: auto; padding: 6px 14px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .8rem; color: var(--muted);
+  cursor: pointer;
+}
+.tab-add:hover { color: var(--amber); }
+.tab-close {
+  font-size: .6rem; color: var(--muted);
+  margin-left: 4px;
+}
+.tab-close:hover { color: var(--red); }
+
+#terminal-container {
+  flex: 1; min-height: 0;
+  padding: 4px;
+  background: #0b0d0f;
+}
+.xterm { height: 100% !important; }
+.xterm-viewport { overflow-y: auto !important; }
+
+/* SSH Bar */
+#ssh-bar {
+  flex-shrink: 0;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  padding: 6px 10px;
+  display: flex; align-items: center; gap: 6px;
+}
+.ssh-bar-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .65rem; color: var(--amber-dim);
+  white-space: nowrap;
+}
+.ssh-input {
+  flex: 1; padding: 4px 8px;
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text); font-family: 'Share Tech Mono', monospace;
+  font-size: .72rem; outline: none;
+}
+.ssh-input:focus { border-color: var(--amber-dim); }
+.ssh-connect-btn {
+  padding: 4px 12px;
+  background: transparent; border: 1px solid var(--amber-dim);
+  color: var(--amber-dim); font-family: 'Share Tech Mono', monospace;
+  font-size: .65rem; cursor: pointer; transition: all .15s;
+  white-space: nowrap;
+}
+.ssh-connect-btn:hover { border-color: var(--amber); color: var(--amber); }
+
+/* ── Right: Advisor Panel ── */
+#advisor-panel {
+  display: flex; flex-direction: column;
+  flex: 1; min-width: 280px;
+  background: var(--bg2);
+  overflow: hidden;
+}
+
+.advisor-tabs {
+  display: flex; flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg3);
+}
+.atab {
+  padding: 8px 16px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .68rem; color: var(--text-dim);
+  cursor: pointer; border-right: 1px solid var(--border);
+  transition: all .15s;
+}
+.atab.active { color: var(--cyan); background: var(--bg2); border-bottom: 2px solid var(--cyan); }
+.atab:hover:not(.active) { color: var(--text); }
+
+/* Chat view */
+#chat-view { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+#messages {
+  flex: 1; overflow-y: auto; padding: 1rem;
+  display: flex; flex-direction: column; gap: .75rem;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+#messages::-webkit-scrollbar { width: 4px; }
+#messages::-webkit-scrollbar-thumb { background: var(--border); }
+
+.msg {
+  max-width: 96%; animation: slideUp .2s ease;
+}
+.msg-user { align-self: flex-end; }
+.msg-ash  { align-self: flex-start; }
+
+.msg-bubble {
+  padding: .75rem 1rem;
+  font-size: .82rem; line-height: 1.65;
+}
+.msg-user .msg-bubble {
+  background: rgba(232,160,32,0.1);
+  border: 1px solid var(--amber-dim);
+  color: var(--amber);
+  font-family: 'Share Tech Mono', monospace;
+}
+.msg-ash .msg-bubble {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--cyan);
+  color: var(--text);
+}
+.msg-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .6rem; color: var(--text-dim);
+  margin-bottom: 4px; letter-spacing: 1px;
+}
+.msg-user .msg-label { text-align: right; color: var(--amber-dim); }
+
+/* Markdown in messages */
+.msg-ash .msg-bubble h1,.msg-ash .msg-bubble h2,.msg-ash .msg-bubble h3 {
+  color: var(--amber); font-family: 'Share Tech Mono', monospace;
+  margin: .6rem 0 .3rem; font-size: .85rem;
+}
+.msg-ash .msg-bubble strong { color: var(--cyan); }
+.msg-ash .msg-bubble em { color: var(--amber-dim); font-style: normal; }
+.msg-ash .msg-bubble code {
+  background: rgba(0,0,0,0.5); border: 1px solid var(--border);
+  color: var(--green); font-family: 'Share Tech Mono', monospace;
+  font-size: .78rem; padding: 1px 5px;
+}
+.msg-ash .msg-bubble pre {
+  background: rgba(0,0,0,0.6); border: 1px solid var(--border);
+  border-left: 3px solid var(--green);
+  margin: .5rem 0; padding: .75rem;
+  overflow-x: auto; position: relative;
+}
+.msg-ash .msg-bubble pre code {
+  background: none; border: none; padding: 0;
+  font-size: .78rem; color: var(--green); display: block;
+}
+.msg-ash .msg-bubble ul, .msg-ash .msg-bubble ol {
+  padding-left: 1.2rem; margin: .3rem 0;
+}
+.msg-ash .msg-bubble li { margin: .2rem 0; }
+.msg-ash .msg-bubble hr { border-color: var(--border); margin: .5rem 0; }
+.msg-ash .msg-bubble p { margin: .3rem 0; }
+
+/* Copy button on code blocks */
+.copy-btn {
+  position: absolute; top: 6px; right: 6px;
+  padding: 2px 8px;
+  background: var(--bg2); border: 1px solid var(--border);
+  color: var(--text-dim); font-family: 'Share Tech Mono', monospace;
+  font-size: .6rem; cursor: pointer; transition: all .15s;
+}
+.copy-btn:hover { border-color: var(--amber); color: var(--amber); }
+
+/* Paste-to-terminal button */
+.paste-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-top: 4px; padding: 3px 10px;
+  background: rgba(0,255,136,0.08); border: 1px solid var(--green-dim);
+  color: var(--green); font-family: 'Share Tech Mono', monospace;
+  font-size: .62rem; cursor: pointer; transition: all .15s;
+}
+.paste-btn:hover { background: rgba(0,255,136,0.15); border-color: var(--green); }
+
+/* Typing indicator */
+.typing {
+  display: flex; align-items: center; gap: 5px;
+  padding: .5rem 1rem; color: var(--text-dim);
+  font-family: 'Share Tech Mono', monospace; font-size: .72rem;
+}
+.typing-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--cyan); animation: blink 1.2s infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: .2s; }
+.typing-dot:nth-child(3) { animation-delay: .4s; }
+
+/* Chat Input */
+#chat-input-area {
+  flex-shrink: 0; padding: .75rem;
+  border-top: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: .5rem;
+}
+.output-paste-bar {
+  display: flex; gap: 6px;
+}
+.paste-area {
+  flex: 1; min-height: 40px; max-height: 80px;
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text); font-family: 'Share Tech Mono', monospace;
+  font-size: .72rem; padding: 6px 8px; resize: none; outline: none;
+}
+.paste-area:focus { border-color: var(--amber-dim); }
+.paste-area::placeholder { color: var(--muted); }
+.paste-submit-btn {
+  padding: 0 12px; align-self: stretch;
+  background: transparent; border: 1px solid var(--amber-dim);
+  color: var(--amber-dim); font-family: 'Share Tech Mono', monospace;
+  font-size: .65rem; cursor: pointer; transition: all .15s;
+  white-space: nowrap;
+}
+.paste-submit-btn:hover { border-color: var(--amber); color: var(--amber); }
+
+#chat-input {
+  width: 100%; padding: .65rem .85rem;
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text); font-family: 'Share Tech Mono', monospace;
+  font-size: .82rem; outline: none; resize: none;
+  min-height: 44px; max-height: 100px;
+  transition: border-color .2s;
+}
+#chat-input:focus { border-color: var(--amber-dim); }
+#chat-input::placeholder { color: var(--muted); }
+
+.chat-actions { display: flex; gap: 6px; justify-content: space-between; align-items: center; }
+.chat-hint {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .62rem; color: var(--muted);
+}
+.send-btn {
+  padding: 6px 20px;
+  background: transparent; border: 1px solid var(--amber);
+  color: var(--amber); font-family: 'Orbitron', monospace;
+  font-weight: 700; font-size: .7rem; letter-spacing: 2px;
+  cursor: pointer; transition: all .15s;
+}
+.send-btn:hover { background: var(--amber); color: var(--bg); }
+.send-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ── Tools View ── */
+#tools-view {
+  display: none; flex: 1;
+  overflow-y: auto; padding: 1rem;
+  flex-direction: column; gap: .5rem;
+}
+.tool-group-title {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .68rem; color: var(--amber); letter-spacing: 2px;
+  text-transform: uppercase; margin: .5rem 0 .3rem;
+  padding-bottom: 4px; border-bottom: 1px solid var(--border);
+}
+.tool-row {
+  display: flex; align-items: center; gap: .5rem;
+  padding: 4px 0;
+}
+.tool-name {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .72rem; color: var(--text); flex: 1;
+}
+.tool-badge {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .6rem; padding: 2px 8px;
+  border: 1px solid;
+}
+.tool-badge.ok { color: var(--green); border-color: var(--green-dim); }
+.tool-badge.miss { color: var(--red); border-color: #551111; }
+.tool-ask-btn {
+  padding: 2px 8px; background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim); font-family: 'Share Tech Mono', monospace;
+  font-size: .6rem; cursor: pointer; transition: all .15s;
+}
+.tool-ask-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+
+/* ── Report View ── */
+#report-view {
+  display: none; flex: 1;
+  overflow-y: auto; padding: 1rem;
+  flex-direction: column; gap: .75rem;
+}
+.report-field-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .65rem; color: var(--amber-dim);
+  letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px;
+}
+.report-input {
+  width: 100%; padding: 6px 8px;
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text); font-family: 'Share Tech Mono', monospace;
+  font-size: .78rem; outline: none; resize: vertical;
+}
+.report-input:focus { border-color: var(--amber-dim); }
+.report-gen-btn {
+  padding: 8px; background: transparent;
+  border: 1px solid var(--green);
+  color: var(--green); font-family: 'Orbitron', monospace;
+  font-size: .72rem; letter-spacing: 2px; cursor: pointer; transition: all .15s;
+}
+.report-gen-btn:hover { background: rgba(0,255,136,0.1); }
+.severity-row { display: flex; gap: 6px; }
+.sev-tag {
+  padding: 3px 8px; font-family: 'Share Tech Mono', monospace; font-size: .62rem;
+  cursor: pointer; border: 1px solid var(--border); color: var(--text-dim);
+  transition: all .15s;
+}
+.sev-tag:hover, .sev-tag.active { color: var(--bg); }
+.sev-tag[data-sev="CRITICAL"]:hover, .sev-tag[data-sev="CRITICAL"].active { background: #ff3a3a; border-color: #ff3a3a; }
+.sev-tag[data-sev="HIGH"]:hover, .sev-tag[data-sev="HIGH"].active    { background: #ff7700; border-color: #ff7700; }
+.sev-tag[data-sev="MEDIUM"]:hover,.sev-tag[data-sev="MEDIUM"].active  { background: var(--amber); border-color: var(--amber); }
+.sev-tag[data-sev="LOW"]:hover, .sev-tag[data-sev="LOW"].active      { background: var(--cyan); border-color: var(--cyan); }
+.sev-tag[data-sev="INFO"]:hover, .sev-tag[data-sev="INFO"].active     { background: var(--green); border-color: var(--green); }
+
+/* ── Resize Handle ── */
+#resize-handle {
+  width: 5px; cursor: col-resize;
+  background: var(--border);
+  transition: background .15s;
+  flex-shrink: 0;
+}
+#resize-handle:hover { background: var(--amber-dim); }
+
+/* ── Status Bar ── */
+#statusbar {
+  height: 22px; flex-shrink: 0;
+  background: var(--bg3); border-top: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 1rem; gap: 1.5rem;
+}
+.sb-item {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .6rem; color: var(--text-dim); letter-spacing: 1px;
+}
+.sb-item span { color: var(--amber); }
+.sb-phase { color: var(--cyan) !important; }
+.sb-phase span { color: var(--cyan) !important; }
+
+/* ── Animations ── */
+@keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+@keyframes pulse   { 0%,100% { opacity:1; } 50% { opacity:.4; } }
+@keyframes blink   { 0%,80%,100% { transform:scale(0); } 40% { transform:scale(1); } }
+@keyframes glitch  {
+  0%   { clip-path: inset(0 0 95% 0); transform: translate(-2px,0); }
+  20%  { clip-path: inset(30% 0 50% 0); transform: translate(2px,0); }
+  40%  { clip-path: inset(60% 0 20% 0); transform: translate(-1px,0); }
+  60%  { clip-path: inset(80% 0 5% 0);  transform: translate(1px,0); }
+  80%  { clip-path: inset(10% 0 85% 0); transform: translate(-2px,0); }
+  100% { clip-path: inset(0 0 95% 0);   transform: translate(0,0); }
+}
+
+/* Notification toast */
+#toast {
+  position: fixed; bottom: 2rem; right: 1.5rem; z-index: 1000;
+  padding: .6rem 1.2rem;
+  background: var(--bg2); border: 1px solid var(--amber);
+  color: var(--amber); font-family: 'Share Tech Mono', monospace; font-size: .75rem;
+  transform: translateY(200%); transition: transform .3s ease;
+  pointer-events: none;
+}
+#toast.show { transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- ══════════════ LOGIN ══════════════ -->
+<div id="login-screen">
+  <pre class="login-art">
+ ▄▄▄       ██████  ██░ ██     ▄▄▄        ▄████ ▓█████  ███▄    █ ▄▄▄█████▓
+▒████▄   ▒██    ▒ ▓██░ ██▒   ▒████▄     ██▒ ▀█▒▓█   ▀  ██ ▀█   █ ▓  ██▒ ▓▒
+▒██  ▀█▄ ░ ▓██▄   ▒██▀▀██░   ▒██  ▀█▄  ▒██░▄▄▄░▒███   ▓██  ▀█ ██▒▒ ▓██░ ▒░
+░██▄▄▄▄██  ▒   ██▒░▓█ ░██    ░██▄▄▄▄██ ░▓█  ██▓▒▓█  ▄ ▓██▒  ▐▌██▒░ ▓██▓ ░ 
+ ▓█   ▓██▒▒██████▒▒░▓█▒░██▓   ▓█   ▓██▒░▒▓███▀▒░▒████▒▒██░   ▓██░  ▒██▒ ░ 
+ ▒▒   ▓▒█░▒ ▒▓▒ ▒ ░ ▒ ░░▒░▒   ▒▒   ▓▒█░ ░▒   ▒ ░░ ▒░ ░░ ▒░   ▒ ▒   ▒ ░░   
+  ▒   ▒▒ ░░ ░▒  ░ ░ ▒ ░▒░ ░    ▒   ▒▒ ░  ░   ░  ░ ░  ░░ ░░   ░ ▒░    ░    
+  ░   ▒   ░  ░  ░   ░  ░░ ░    ░   ▒   ░ ░   ░    ░      ░   ░ ░   ░      
+      ░  ░      ░   ░  ░  ░        ░  ░      ░    ░  ░         ░          </pre>
+
+  <div class="login-box">
+    <div class="login-title">ASH_AGENT</div>
+    <div class="login-sub">Penetration Test Advisor — v1.0</div>
+    <label class="login-label" for="email-in">Operative Email</label>
+    <input class="login-input" id="email-in" type="email"
+           placeholder="your@email.com" autocomplete="off" spellcheck="false">
+    <button class="login-btn" id="login-btn" onclick="doLogin()">
+      <span>⟶ AUTHENTICATE</span>
+    </button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- ══════════════ MAIN APP ══════════════ -->
+<div id="app">
+
+  <!-- Top Bar -->
+  <div id="topbar">
+    <div class="topbar-logo">ASH <span>AGENT v1.0</span></div>
+
+    <div class="topbar-phases" id="phase-bar">
+      <button class="phase-btn active" data-phase="PRE-ENGAGEMENT"    onclick="setPhase(this)">0.PRE-ENG</button>
+      <button class="phase-btn"        data-phase="PASSIVE RECON"      onclick="setPhase(this)">1.PASSIVE</button>
+      <button class="phase-btn"        data-phase="ACTIVE RECON"       onclick="setPhase(this)">2.ACTIVE</button>
+      <button class="phase-btn"        data-phase="ENUMERATION"        onclick="setPhase(this)">3.ENUM</button>
+      <button class="phase-btn"        data-phase="VULNERABILITY"      onclick="setPhase(this)">4.VULN</button>
+      <button class="phase-btn"        data-phase="EXPLOITATION"       onclick="setPhase(this)">5.EXPLOIT</button>
+      <button class="phase-btn"        data-phase="POST-EXPLOITATION"  onclick="setPhase(this)">6.POST-EXP</button>
+      <button class="phase-btn"        data-phase="REPORTING"          onclick="setPhase(this)">7.REPORT</button>
+    </div>
+
+    <div class="topbar-right">
+      <div class="status-dot"></div>
+      <div class="status-label">ONLINE</div>
+      <button class="topbar-btn" onclick="loadTools()">TOOLS</button>
+      <button class="topbar-btn" onclick="clearChat()">CLEAR</button>
+      <button class="topbar-btn danger" onclick="doLogout()">LOGOUT</button>
+    </div>
+  </div>
+
+  <!-- Main Body -->
+  <div id="main-body">
+
+    <!-- Terminal Panel -->
+    <div id="terminal-panel">
+      <div class="panel-header">
+        <div class="panel-dot pd-red"></div>
+        <div class="panel-dot pd-amber"></div>
+        <div class="panel-dot pd-green"></div>
+        <div class="panel-title" style="margin-left:.5rem">TERMINAL</div>
+        <div style="margin-left:auto;display:flex;gap:6px">
+          <button class="topbar-btn" onclick="newTab()" style="font-size:.58rem">+ TAB</button>
+          <button class="topbar-btn" onclick="clearTerminal()" style="font-size:.58rem">CLR</button>
+        </div>
+      </div>
+
+      <div class="tab-bar" id="tab-bar">
+        <div class="tab active" id="tab-0" onclick="switchTab(0)">
+          <span>bash:0</span>
+          <span class="tab-close" onclick="closeTab(event,0)">✕</span>
+        </div>
+      </div>
+
+      <div id="terminal-container"></div>
+
+      <!-- SSH Quick-Connect -->
+      <div id="ssh-bar">
+        <div class="ssh-bar-label">SSH →</div>
+        <input class="ssh-input" id="ssh-user"  placeholder="user" value="root" style="width:80px">
+        <div style="color:var(--muted);font-size:.8rem">@</div>
+        <input class="ssh-input" id="ssh-host"  placeholder="target IP / hostname">
+        <div style="color:var(--muted);font-size:.8rem">:</div>
+        <input class="ssh-input" id="ssh-port"  placeholder="22" value="22" style="width:55px">
+        <input class="ssh-input" id="ssh-key"   placeholder="key path (opt)" style="width:130px">
+        <button class="ssh-connect-btn" onclick="sshConnect()">⟶ CONNECT</button>
+      </div>
+    </div>
+
+    <!-- Resize Handle -->
+    <div id="resize-handle"></div>
+
+    <!-- Advisor Panel -->
+    <div id="advisor-panel">
+      <div class="advisor-tabs">
+        <div class="atab active" id="atab-chat"   onclick="showAdvisorTab('chat')">ASH ADVISOR</div>
+        <div class="atab"        id="atab-tools"  onclick="showAdvisorTab('tools')">TOOLS</div>
+        <div class="atab"        id="atab-report" onclick="showAdvisorTab('report')">REPORT</div>
+      </div>
+
+      <!-- CHAT VIEW -->
+      <div id="chat-view">
+        <div id="messages"></div>
+        <div id="chat-input-area">
+          <!-- Paste tool output for analysis -->
+          <div class="output-paste-bar">
+            <textarea class="paste-area" id="paste-area"
+              placeholder="← Paste tool output here for ASH to analyse…"></textarea>
+            <button class="paste-submit-btn" onclick="submitPaste()">ANALYSE<br>OUTPUT</button>
+          </div>
+          <!-- Direct question input -->
+          <textarea id="chat-input" rows="2"
+            placeholder="Ask ASH… e.g. 'Start passive recon on target.com'"
+            onkeydown="handleKey(event)"></textarea>
+          <div class="chat-actions">
+            <span class="chat-hint">Enter to send · Shift+Enter for newline</span>
+            <button class="send-btn" id="send-btn" onclick="sendMessage()">SEND ⟶</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOOLS VIEW -->
+      <div id="tools-view">
+        <div id="tools-content">
+          <div style="color:var(--text-dim);font-family:'Share Tech Mono',monospace;font-size:.75rem;padding:1rem">
+            Click TOOLS in the top bar to check which tools are installed.
+          </div>
+        </div>
+      </div>
+
+      <!-- REPORT VIEW -->
+      <div id="report-view">
+        <div class="report-field-label">Target / Engagement</div>
+        <input class="report-input" id="r-target" placeholder="e.g. Acme Corp — Internal Network Assessment">
+
+        <div class="report-field-label">Scope</div>
+        <textarea class="report-input" id="r-scope" rows="2" placeholder="IP ranges, domains in scope…"></textarea>
+
+        <div class="report-field-label">Add Finding</div>
+        <input class="report-input" id="r-finding-title" placeholder="Finding title…" style="margin-bottom:4px">
+        <textarea class="report-input" id="r-finding-desc" rows="3"
+          placeholder="Description, evidence, impact…" style="margin-bottom:6px"></textarea>
+        <div class="severity-row" id="sev-row">
+          <div class="sev-tag" data-sev="CRITICAL" onclick="toggleSev(this)">CRITICAL</div>
+          <div class="sev-tag" data-sev="HIGH"     onclick="toggleSev(this)">HIGH</div>
+          <div class="sev-tag" data-sev="MEDIUM"   onclick="toggleSev(this)">MEDIUM</div>
+          <div class="sev-tag" data-sev="LOW"      onclick="toggleSev(this)">LOW</div>
+          <div class="sev-tag" data-sev="INFO"     onclick="toggleSev(this)">INFO</div>
+        </div>
+        <button class="paste-submit-btn" onclick="addFinding()"
+          style="width:100%;margin-top:6px;padding:6px">+ ADD FINDING</button>
+
+        <div id="findings-list" style="margin-top:.5rem; display:flex; flex-direction:column; gap:4px"></div>
+
+        <button class="report-gen-btn" onclick="generateReport()" style="margin-top:.5rem">
+          ⟶ GENERATE REPORT WITH ASH
+        </button>
+      </div>
+
+    </div><!-- /advisor-panel -->
+  </div><!-- /main-body -->
+
+  <!-- Status Bar -->
+  <div id="statusbar">
+    <div class="sb-item">ASH_AGENT <span>v1.0</span></div>
+    <div class="sb-item sb-phase">PHASE: <span id="sb-phase">PRE-ENGAGEMENT</span></div>
+    <div class="sb-item">MSGS: <span id="sb-msgcount">0</span></div>
+    <div class="sb-item" id="sb-conn">TERM: <span>DISCONNECTED</span></div>
+    <div class="sb-item" style="margin-left:auto">LOCALHOST ONLY — ALL ACTIONS LOGGED</div>
+  </div>
+
+</div><!-- /app -->
+
+<div id="toast"></div>
+
+<script>
+// ══ State ══
+const API = 'http://127.0.0.1:5000';
+let authToken   = '';
+let ws          = null;
+let term        = null;
+let fitAddon    = null;
+let msgCount    = 0;
+let findings    = [];
+let currentSev  = 'HIGH';
+let tabs        = [{ id: 0, label: 'bash:0' }];
+let activeTab   = 0;
+let tabCounter  = 1;
+let isTyping    = false;
+
+// ══ Login ══
+document.getElementById('email-in').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+async function doLogin() {
+  const email = document.getElementById('email-in').value.trim();
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  if (!email) { errEl.textContent = 'Enter your email.'; return; }
+  document.getElementById('login-btn').disabled = true;
+  document.getElementById('login-btn').querySelector('span').textContent = '⟶ AUTHENTICATING…';
+  try {
+    const r = await fetch(`${API}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const d = await r.json();
+    if (d.success) {
+      authToken = d.token;
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').classList.add('active');
+      initTerminal();
+      welcomeMessage();
+    } else {
+      errEl.textContent = d.message || 'Access denied.';
+    }
+  } catch(e) {
+    errEl.textContent = 'Cannot reach ASH server. Is ash_advisor.py running?';
+  }
+  document.getElementById('login-btn').disabled = false;
+  document.getElementById('login-btn').querySelector('span').textContent = '⟶ AUTHENTICATE';
+}
+
+async function doLogout() {
+  await fetch(`${API}/api/logout`, {
+    method:'POST', headers:{'X-Auth-Token': authToken}
+  }).catch(()=>{});
+  location.reload();
+}
+
+// ══ Terminal ══
+function initTerminal() {
+  const container = document.getElementById('terminal-container');
+  term = new Terminal({
+    theme: {
+      background: '#0b0d0f',
+      foreground: '#c8d4e0',
+      cursor:     '#e8a020',
+      cursorAccent: '#0b0d0f',
+      selectionBackground: 'rgba(232,160,32,0.3)',
+      black:   '#1e2530', red:    '#ff3a3a',
+      green:   '#00ff88', yellow: '#e8a020',
+      blue:    '#4488ff', magenta:'#cc44ff',
+      cyan:    '#00d4ff', white:  '#c8d4e0',
+      brightBlack:   '#3a4555', brightRed:    '#ff6666',
+      brightGreen:   '#44ffaa', brightYellow: '#ffcc44',
+      brightBlue:    '#66aaff', brightMagenta:'#ee66ff',
+      brightCyan:    '#44eeff', brightWhite:  '#ffffff',
+    },
+    fontFamily: '"Share Tech Mono", "Courier New", monospace',
+    fontSize: 13,
+    lineHeight: 1.25,
+    cursorBlink: true,
+    cursorStyle: 'block',
+    scrollback: 5000,
+    allowProposedApi: true,
+  });
+  fitAddon = new FitAddon.FitAddon();
+  const linksAddon = new WebLinksAddon.WebLinksAddon();
+  term.loadAddon(fitAddon);
+  term.loadAddon(linksAddon);
+  term.open(container);
+  fitAddon.fit();
+
+  connectWS();
+
+  term.onData(data => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'input', data }));
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    fitAddon.fit();
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'resize',
+        cols: term.cols, rows: term.rows
+      }));
+    }
+  });
+}
+
+function connectWS() {
+  const wsUrl = `ws://127.0.0.1:5000/ws/terminal?token=${authToken}`;
+  ws = new WebSocket(wsUrl);
+
+  ws.onopen = () => {
+    document.getElementById('sb-conn').innerHTML = 'TERM: <span style="color:var(--green)">CONNECTED</span>';
+    fitAddon.fit();
+    ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+  };
+
+  ws.onmessage = e => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'output') term.write(msg.data);
+    } catch {}
+  };
+
+  ws.onclose = () => {
+    document.getElementById('sb-conn').innerHTML = 'TERM: <span style="color:var(--red)">DISCONNECTED</span>';
+    // Auto-reconnect after 3s
+    setTimeout(() => { if (authToken) connectWS(); }, 3000);
+  };
+
+  ws.onerror = () => ws.close();
+}
+
+function clearTerminal() { term.clear(); }
+
+function newTab() {
+  const id = tabCounter++;
+  tabs.push({ id, label: `bash:${id}` });
+  const bar = document.getElementById('tab-bar');
+  const div = document.createElement('div');
+  div.className = 'tab'; div.id = `tab-${id}`;
+  div.innerHTML = `<span>bash:${id}</span><span class="tab-close" onclick="closeTab(event,${id})">✕</span>`;
+  div.onclick = () => switchTab(id);
+  bar.insertBefore(div, bar.lastElementChild);
+  showToast(`Tab bash:${id} — terminal is shared (single PTY). Use tmux for multiple sessions.`);
+}
+
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const el = document.getElementById(`tab-${id}`);
+  if (el) el.classList.add('active');
+  activeTab = id;
+}
+
+function closeTab(e, id) {
+  e.stopPropagation();
+  if (tabs.length === 1) return;
+  tabs = tabs.filter(t => t.id !== id);
+  document.getElementById(`tab-${id}`)?.remove();
+  if (activeTab === id) switchTab(tabs[tabs.length-1].id);
+}
+
+// ══ Paste command into terminal ══
+function pasteToTerminal(cmd) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'input', data: cmd }));
+    showToast('Command sent to terminal');
+  } else {
+    navigator.clipboard.writeText(cmd).catch(()=>{});
+    showToast('Terminal offline — copied to clipboard');
+  }
+}
+
+// ══ SSH ══
+async function sshConnect() {
+  const host = document.getElementById('ssh-host').value.trim();
+  const user = document.getElementById('ssh-user').value.trim() || 'root';
+  const port = document.getElementById('ssh-port').value.trim() || '22';
+  const key  = document.getElementById('ssh-key').value.trim();
+  if (!host) { showToast('Enter a target host'); return; }
+  const r = await fetch(`${API}/api/ssh-command`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Auth-Token': authToken },
+    body: JSON.stringify({ host, user, port: parseInt(port), key })
+  });
+  const d = await r.json();
+  if (d.command) {
+    pasteToTerminal(d.command + '\n');
+    showToast(`SSH → ${user}@${host}:${port}`);
+  }
+}
+
+// ══ Chat ══
+function welcomeMessage() {
+  appendMsg('ash', `**ASH_AGENT online. Operative authenticated.**
+
+Welcome. I'm your pen test methodology advisor. I will guide you through each phase, craft precise commands for you to run in the terminal, and analyse output you paste back.
+
+**How to use:**
+- Select a **phase** from the top bar to jump to that stage
+- Type your question or objective in the chat
+- Paste tool output into the **ANALYSE OUTPUT** box on the left for interpretation
+- Commands I suggest appear with a **→ SEND TO TERMINAL** button
+
+**To begin:** Tell me about your engagement — what's the target scope, and which phase are we starting from?`);
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+async function sendMessage() {
+  const input = document.getElementById('chat-input');
+  const msg   = input.value.trim();
+  if (!msg || isTyping) return;
+  input.value = '';
+  appendMsg('user', msg);
+  await askAsh(msg);
+}
+
+async function submitPaste() {
+  const area   = document.getElementById('paste-area');
+  const output = area.value.trim();
+  if (!output) return;
+  const msg = `[TOOL OUTPUT FOR ANALYSIS]\n\`\`\`\n${output}\n\`\`\``;
+  area.value = '';
+  appendMsg('user', 'Pasted tool output for analysis…');
+  await askAsh(msg);
+}
+
+async function askAsh(message) {
+  const sendBtn = document.getElementById('send-btn');
+  sendBtn.disabled = true;
+  isTyping = true;
+  showTyping();
+
+  // Build history from DOM
+  const history = [];
+  document.querySelectorAll('.msg').forEach(m => {
+    const role    = m.classList.contains('msg-user') ? 'user' : 'assistant';
+    const content = m.querySelector('.msg-bubble')?.dataset.raw || '';
+    if (content) history.push({ role, content });
+  });
+
+  try {
+    const r = await fetch(`${API}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Auth-Token': authToken },
+      body: JSON.stringify({ message, history: history.slice(-20) })
+    });
+    const d = await r.json();
+    hideTyping();
+    if (d.reply) {
+      appendMsg('ash', d.reply);
+      if (d.phase) updatePhaseUI(d.phase);
+    } else {
+      appendMsg('ash', `[ERROR] ${d.error || 'Unknown error'}`);
+    }
+  } catch(e) {
+    hideTyping();
+    appendMsg('ash', `[ERROR] Cannot reach ASH server: ${e.message}`);
+  }
+  sendBtn.disabled = false;
+  isTyping = false;
+}
+
+// ══ Phase ══
+async function setPhase(btn) {
+  const phase = btn.dataset.phase;
+  document.querySelectorAll('.phase-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('sb-phase').textContent = phase;
+
+  const sendBtn = document.getElementById('send-btn');
+  sendBtn.disabled = true; isTyping = true;
+  showTyping();
+  try {
+    const r = await fetch(`${API}/api/phase`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Auth-Token': authToken },
+      body: JSON.stringify({ phase })
+    });
+    const d = await r.json();
+    hideTyping();
+    if (d.reply) appendMsg('ash', d.reply);
+  } catch(e) {
+    hideTyping();
+    appendMsg('ash', `[ERROR] ${e.message}`);
+  }
+  sendBtn.disabled = false; isTyping = false;
+}
+
+function updatePhaseUI(phase) {
+  document.getElementById('sb-phase').textContent = phase;
+  document.querySelectorAll('.phase-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.phase === phase);
+  });
+}
+
+// ══ Tools ══
+async function loadTools() {
+  showAdvisorTab('tools');
+  const content = document.getElementById('tools-content');
+  content.innerHTML = '<div style="color:var(--text-dim);font-family:\'Share Tech Mono\',monospace;font-size:.72rem;padding:.5rem">Checking tools…</div>';
+  try {
+    const r = await fetch(`${API}/api/tools`, { headers: { 'X-Auth-Token': authToken } });
+    const tools = await r.json();
+
+    const groups = {
+      'Recon / Discovery':    ['nmap','masscan','rustscan','amass','subfinder','theHarvester','netdiscover','arp-scan'],
+      'Web Enumeration':      ['gobuster','ffuf','feroxbuster','nikto','nuclei','whatweb','wafw00f'],
+      'Web Exploitation':     ['sqlmap','curl','wget'],
+      'Passwords':            ['hashcat','john','hydra','medusa'],
+      'Network Analysis':     ['tshark','tcpdump','responder','bettercap'],
+      'Exploit Framework':    ['msfconsole','searchsploit'],
+      'Post-Exploitation':    ['crackmapexec','evil-winrm','bloodhound-python','kerbrute','proxychains','chisel','socat'],
+      'AD / SMB':             ['enum4linux','smbclient','smbmap','ldapsearch','rpcclient'],
+      'Wireless':             ['airmon-ng','airodump-ng','aircrack-ng','wifite'],
+      'Core Utils':           ['ssh','python3','perl','ruby','curl','wget'],
+    };
+
+    let html = '';
+    for (const [group, toolList] of Object.entries(groups)) {
+      html += `<div class="tool-group-title">${group}</div>`;
+      for (const t of toolList) {
+        if (!(t in tools)) continue;
+        const ok = tools[t];
+        html += `<div class="tool-row">
+          <div class="tool-name">${t}</div>
+          <div class="tool-badge ${ok?'ok':'miss'}">${ok?'INSTALLED':'MISSING'}</div>
+          <button class="tool-ask-btn" onclick="askAboutTool('${t}')">ASK ASH</button>
+        </div>`;
+      }
+    }
+    content.innerHTML = html;
+  } catch(e) {
+    content.innerHTML = `<div style="color:var(--red);font-family:'Share Tech Mono',monospace;font-size:.72rem;padding:.5rem">Error: ${e.message}</div>`;
+  }
+}
+
+function askAboutTool(tool) {
+  showAdvisorTab('chat');
+  document.getElementById('chat-input').value =
+    `Give me a quick-reference for using ${tool} in a pen test. Show the most useful commands with flags.`;
+  sendMessage();
+}
+
+// ══ Report ══
+function toggleSev(el) {
+  document.querySelectorAll('.sev-tag').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  currentSev = el.dataset.sev;
+}
+
+function addFinding() {
+  const title = document.getElementById('r-finding-title').value.trim();
+  const desc  = document.getElementById('r-finding-desc').value.trim();
+  if (!title) { showToast('Enter a finding title'); return; }
+  const finding = { title, desc, sev: currentSev };
+  findings.push(finding);
+  document.getElementById('r-finding-title').value = '';
+  document.getElementById('r-finding-desc').value  = '';
+  renderFindings();
+}
+
+function renderFindings() {
+  const colors = { CRITICAL:'#ff3a3a', HIGH:'#ff7700', MEDIUM:'#e8a020', LOW:'#00d4ff', INFO:'#00ff88' };
+  const list = document.getElementById('findings-list');
+  list.innerHTML = findings.map((f,i) =>
+    `<div style="background:var(--bg3);border:1px solid var(--border);border-left:3px solid ${colors[f.sev]};padding:6px 10px;position:relative">
+      <div style="font-family:'Share Tech Mono',monospace;font-size:.62rem;color:${colors[f.sev]}">[${f.sev}]</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:.72rem;color:var(--text)">${f.title}</div>
+      <div style="font-size:.68rem;color:var(--text-dim);margin-top:2px">${f.desc||''}</div>
+      <button onclick="removeFinding(${i})" style="position:absolute;top:4px;right:6px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:.7rem">✕</button>
+    </div>`
+  ).join('');
+}
+
+function removeFinding(i) { findings.splice(i,1); renderFindings(); }
+
+async function generateReport() {
+  const target = document.getElementById('r-target').value.trim();
+  const scope  = document.getElementById('r-scope').value.trim();
+  if (!findings.length && !target) { showToast('Add target and findings first'); return; }
+  showAdvisorTab('chat');
+  const msg = `Generate a professional penetration test report with the following data:
+
+**Target:** ${target||'(unspecified)'}
+**Scope:** ${scope||'(unspecified)'}
+
+**Findings:**
+${findings.map(f=>`[${f.sev}] ${f.title}: ${f.desc||'No description'}`).join('\n')}
+
+Include: Executive Summary, Methodology, Findings table with CVSS scores, detailed findings sections, and remediation recommendations.`;
+  await askAsh(msg);
+}
+
+// ══ UI Helpers ══
+function appendMsg(role, text) {
+  const msgs = document.getElementById('messages');
+  const div  = document.createElement('div');
+  div.className = `msg msg-${role === 'user' ? 'user' : 'ash'}`;
+
+  const label = role === 'user' ? 'OPERATIVE' : 'ASH_AGENT';
+  const content = role === 'ash' ? marked.parse(text) : escHtml(text);
+
+  div.innerHTML = `
+    <div class="msg-label">${label}</div>
+    <div class="msg-bubble" data-raw="${escAttr(text)}">${content}</div>`;
+
+  msgs.appendChild(div);
+
+  // Add copy + paste buttons to code blocks
+  div.querySelectorAll('pre').forEach(pre => {
+    const code = pre.querySelector('code')?.textContent || '';
+    if (!code.trim()) return;
+
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'copy-btn';
+    copyBtn.textContent = 'COPY';
+    copyBtn.onclick = () => {
+      navigator.clipboard.writeText(code.trim()).catch(()=>{});
+      copyBtn.textContent = 'COPIED';
+      setTimeout(() => copyBtn.textContent = 'COPY', 1500);
+    };
+    pre.style.position = 'relative';
+    pre.appendChild(copyBtn);
+
+    // Only show paste-to-terminal for single-line or command-looking code
+    if (!code.includes('\n') || code.split('\n').filter(l=>l.trim()).length <= 3) {
+      const pasteBtn = document.createElement('button');
+      pasteBtn.className = 'paste-btn';
+      pasteBtn.innerHTML = '⟶ SEND TO TERMINAL';
+      pasteBtn.onclick = () => pasteToTerminal(code.trim() + '\n');
+      pre.parentNode.insertBefore(pasteBtn, pre.nextSibling);
+    }
+  });
+
+  msgCount++;
+  document.getElementById('sb-msgcount').textContent = msgCount;
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function showTyping() {
+  const msgs = document.getElementById('messages');
+  const div  = document.createElement('div');
+  div.id = 'typing-indicator';
+  div.className = 'typing';
+  div.innerHTML = `<span>ASH</span>
+    <div class="typing-dot"></div>
+    <div class="typing-dot"></div>
+    <div class="typing-dot"></div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function hideTyping() {
+  document.getElementById('typing-indicator')?.remove();
+}
+
+async function clearChat() {
+  await fetch(`${API}/api/clear`, { method:'POST', headers:{'X-Auth-Token':authToken} });
+  document.getElementById('messages').innerHTML = '';
+  msgCount = 0;
+  document.getElementById('sb-msgcount').textContent = '0';
+  welcomeMessage();
+}
+
+function showAdvisorTab(tab) {
+  document.getElementById('chat-view').style.display    = tab==='chat'   ? 'flex' : 'none';
+  document.getElementById('tools-view').style.display   = tab==='tools'  ? 'flex' : 'none';
+  document.getElementById('report-view').style.display  = tab==='report' ? 'flex' : 'none';
+  document.querySelectorAll('.atab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`atab-${tab}`)?.classList.add('active');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function escHtml(s)  { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escAttr(s)  { return s.replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+// ══ Resize Handle ══
+(function() {
+  const handle = document.getElementById('resize-handle');
+  const termP  = document.getElementById('terminal-panel');
+  let dragging = false, startX = 0, startW = 0;
+
+  handle.addEventListener('mousedown', e => {
+    dragging = true; startX = e.clientX; startW = termP.offsetWidth;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const delta = e.clientX - startX;
+    const newW  = Math.max(250, Math.min(startW + delta, window.innerWidth - 280));
+    termP.style.width = newW + 'px';
+    termP.style.flex  = 'none';
+    fitAddon && fitAddon.fit();
+  });
+  window.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    fitAddon && fitAddon.fit();
+  });
+})();
+</script>
+</body>
+</html>
