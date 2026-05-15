@@ -35,3 +35,6 @@ service-account.json
 
 # Local Python version
 .python-version
+
+# Local runtime logs
+*.log

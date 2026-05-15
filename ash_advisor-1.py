@@ -68,7 +68,6 @@ PTY_SESSIONS = {}   # token → {pid, fd}
 
 def get_sess(req):
     return SESSIONS.get(req.headers.get("X-Auth-Token", ""))
-
 # ── Gemini ────────────────────────────────────────────────────────────────────
 genai.configure(api_key=GEMINI_API_KEY)
 
