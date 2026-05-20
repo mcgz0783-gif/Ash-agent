@@ -1,4 +1,5 @@
 {
   "image": "mcr.microsoft.com/devcontainers/universal:2",
-  "features": {"ghcr.io/devcontainers/features/anaconda:1": {}}
+  "features": {"ghcr.io/devcontainers/features/anaconda:1": {}},
+  "postCreateCommand": "pip install flask-sock"
 }
