@@ -572,7 +572,7 @@ body::after {
 
 <script>
 // ══ Constants ══
-const API = 'http://127.0.0.1:5000';
+const API = window.location.origin;
 
 // ══ State ══
 let token    = '';
@@ -705,7 +705,8 @@ function initTerminal() {
 function connectWS() {
   if (!token) return;
   try {
-    ws = new WebSocket(`ws://127.0.0.1:5000/ws/terminal?token=${token}`);
+    const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(`${wsProto}//${window.location.host}/ws/terminal?token=${token}`);
   } catch(e) {
     setConnUI(false); return;
   }

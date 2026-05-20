@@ -1,40 +1,10 @@
-# Google App Engine generated folder
-appengine-generated/
-
-# User requested entry
-newer
-
-# Python virtual environments
-venv/
-.venv/
-
-# Byte-compiled / cache
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Env files
 .env
-.env.*
-
-# IDEs and editors
+ash_audit.log
+__pycache__/
+*.pyc
 .vscode/
 .idea/
-
-# Python packaging
-*.egg-info/
-.dist-info/
-
-# Test and lint caches
-.pytest_cache/
-.mypy_cache/
-
-# Credentials
-google-credentials.json
-service-account.json
-
-# Local Python version
-.python-version
-
-# Local runtime logs
-*.log
+.venv/
+venv/
+env/
+.DS_Store

@@ -1,26 +1,35 @@
 # Ash-agent
 
-## Deployment & Auth
+## Setup & Deployment
 
-- API server: runs on `http://127.0.0.1:5000` (run `ash_advisor.py`).
-- Static UI: served on `http://127.0.0.1:8080` (run `app.py`).
-- Authentication: only the single admin email `kevlarmackenzie@gmail.com` is authorised by default.
-	- The server checks the `ADMIN_EMAIL` environment variable (default `kevlarmackenzie@gmail.com`).
-	- To change the admin email, set `ADMIN_EMAIL` before starting the server:
+1. **Install Dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-```
-export ADMIN_EMAIL=kevlarmackenzie@gmail.com
-```
+2. **Configuration**:
+   Create a `.env` file in the root directory:
+   ```env
+   GEMINI_API_KEY=your_google_ai_key
+   ADMIN_EMAIL=kevlarmackenzie@gmail.com
+   GEMINI_MODEL=gemini-2.0-flash
+   ```
 
-- To run both services locally:
+3. **Run the Agent**:
+   ```bash
+   python ash_advisor.py
+   ```
 
-```
-export GEMINI_API_KEY=your_key_here   # optional: for chat features
-export ADMIN_EMAIL=kevlarmackenzie@gmail.com
-python ash_advisor.py   # starts API + WS on port 5000
-python app.py             # serves ash_advisor-1.html on port 8080
-```
+4. **Access the UI**:
+   The server now serves both the API and the UI on:
+   `http://127.0.0.1:5000/`
 
-Notes:
-- The UI (`ash_advisor.html`) posts login requests to `http://127.0.0.1:5000/api/login`.
-- The server-side login enforces the single authorised email; the UI itself does not restrict the input client-side.
+## Authentication
+
+- Authentication is restricted to the email defined in `ADMIN_EMAIL`.
+- The login process issues a secure hex token stored in the session history.
+
+## Features
+- Real-time Terminal (PTY) via WebSockets.
+- AI-driven methodology advisor using Gemini 2.0 Flash.
+- Automated tool availability checks.

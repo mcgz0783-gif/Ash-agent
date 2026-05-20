@@ -9,13 +9,14 @@ INSTALL:
     pip install flask flask-sock flask-cors google-generativeai
 
 RUN:
-    export GEMINI_API_KEY=your_key_here
+    # Create .env with GEMINI_API_KEY=...
     python ash_advisor.py
 
 OPEN:
-    ash_advisor.html  (double-click  OR  python -m http.server 8080)
+    http://127.0.0.1:5000/
 
 BUGS FIXED v2:
+    - Added python-dotenv support for configuration
     - ws.receive(timeout=) removed       → flask-sock does not support it
     - Thread-safe ws.send() via Lock     → prevents race conditions
     - stop_event for reader thread       → clean exit on disconnect
@@ -26,11 +27,20 @@ BUGS FIXED v2:
     - Grouped TOOL_LIST dict             → richer /api/tools response
 """
 
-import os, sys, json, secrets, logging, threading, shutil
+import os, sys, json, secrets, logging, threading, shutil, time
+import os, sys, json, secrets, logging, threading, shutil, time, subprocess
 import struct, fcntl, termios, pty, select, signal
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
+
+START_TIME = time.time()
 from flask_sock import Sock
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 from flask_cors import CORS
 import google.generativeai as genai
 
@@ -62,15 +72,20 @@ log = logging.getLogger("ASH")
 def audit(action, detail=""):
     log.info(f"{action} | {detail}")
 
-# ── Sessions ──────────────────────────────────────────────────────────────────
+def get_git_branch():
+    """Returns the current git branch name."""
+    try:
+        return subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], 
+                                       stderr=subprocess.DEVNULL).decode().strip()
+    except Exception:
+        return "not-a-git-repo"
+
+# ── Sessions & State ──────────────────────────────────────────────────────────
 SESSIONS = {}   # token → {email, phase, history}
 PTY_SESSIONS = {}   # token → {pid, fd}
 
 def get_sess(req):
     return SESSIONS.get(req.headers.get("X-Auth-Token", ""))
-# ── Gemini ────────────────────────────────────────────────────────────────────
-genai.configure(api_key=GEMINI_API_KEY)
-
 SYSTEM_PROMPT = """
 You are ASH_AGENT — an elite penetration testing methodology advisor.
 You run locally on the operative's workstation. You ADVISE; the operative EXECUTES.
@@ -165,11 +180,16 @@ surface, suggest next steps, note OPSEC concerns.
 """
 
 try:
-    _model = genai.GenerativeModel(
-        model_name=GEMINI_MODEL,
-        system_instruction=SYSTEM_PROMPT
-    )
-    audit("GEMINI_OK", f"model={GEMINI_MODEL}")
+    if not GEMINI_API_KEY:
+        _model = None
+        audit("GEMINI_WARN", "GEMINI_API_KEY not found in environment")
+    else:
+        genai.configure(api_key=GEMINI_API_KEY)
+        _model = genai.GenerativeModel(
+            model_name=GEMINI_MODEL,
+            system_instruction=SYSTEM_PROMPT
+        )
+        audit("GEMINI_OK", f"model={GEMINI_MODEL}")
 except Exception as e:
     _model = None
     audit("GEMINI_FAIL", str(e))
@@ -177,14 +197,20 @@ except Exception as e:
 def gemini_chat(history, message):
     """Send message to Gemini, return reply text."""
     if not _model:
-        raise RuntimeError("Gemini not initialised — check GEMINI_API_KEY")
+        return "[ERROR] Gemini AI not initialized. Please set GEMINI_API_KEY."
+    
     gh = []
     for m in history:
         gh.append({"role": "user" if m["role"] == "user" else "model",
                    "parts": [{"text": m["content"]}]})
-    cs   = _model.start_chat(history=gh)
-    resp = cs.send_message(message)
-    return resp.text
+    
+    try:
+        cs   = _model.start_chat(history=gh)
+        resp = cs.send_message(message)
+        return resp.text
+    except Exception as e:
+        audit("GEMINI_RPC_ERR", str(e))
+        return f"[AI ERROR] {str(e)}"
 
 PHASES = ["PRE-ENGAGEMENT","PASSIVE RECON","ACTIVE RECON","ENUMERATION",
           "VULNERABILITY","EXPLOITATION","POST-EXPLOITATION","REPORTING"]
@@ -199,6 +225,12 @@ def detect_phase(text):
 # ── CORS preflight helper ─────────────────────────────────────────────────────
 def ok():
     return jsonify({}), 200
+
+# ── Static Frontend ───────────────────────────────────────────────────────────
+@app.route("/")
+def index():
+    """Serve the main UI directly from the root."""
+    return send_from_directory('.', 'ash_advisor.html')
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 @app.route("/api/login", methods=["POST", "OPTIONS"])
@@ -341,8 +373,14 @@ def ssh_command():
 # ── Health ────────────────────────────────────────────────────────────────────
 @app.route("/health")
 def health():
-    return jsonify({"status": "ok", "agent": "ASH_AGENT v2",
-                    "model": GEMINI_MODEL, "sessions": len(SESSIONS)})
+    return jsonify({
+        "status": "ok",
+        "agent": "ASH_AGENT v2",
+        "model": GEMINI_MODEL,
+        "sessions": len(SESSIONS),
+        "uptime": f"{int(time.time() - START_TIME)}s",
+        "server_time": time.ctime()
+    })
 
 # ── WebSocket PTY Terminal ────────────────────────────────────────────────────
 #
