@@ -2,7 +2,7 @@
 
 ## Deployment & Auth
 
-- API server: runs on `http://127.0.0.1:5000` (run `ash_advisor-1.py`).
+- API server: runs on `http://127.0.0.1:5000` (run `ash_advisor.py`).
 - Static UI: served on `http://127.0.0.1:8080` (run `app.py`).
 - Authentication: only the single admin email `kevlarmackenzie@gmail.com` is authorised by default.
 	- The server checks the `ADMIN_EMAIL` environment variable (default `kevlarmackenzie@gmail.com`).
@@ -18,7 +18,7 @@ export ADMIN_EMAIL=kevlarmackenzie@gmail.com
 export GEMINI_API_KEY=your_key_here   # optional: for chat features
 export ADMIN_EMAIL=kevlarmackenzie@gmail.com
 python ash_advisor-1.py   # starts API + WS on port 5000
-python app.py             # serves ash_advisor-1.html on port 8080
+python app.py             # serves ash_advisor.html on port 8080
 ```
 
 Notes:
